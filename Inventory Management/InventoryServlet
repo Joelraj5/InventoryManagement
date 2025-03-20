@@ -1,0 +1,82 @@
+import java.io.IOException;
+import java.sql.*;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+@WebServlet("/InventoryServlet")
+public class InventoryServlet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/inventorydb";
+    private static final String JDBC_USER = "root";
+    private static final String JDBC_PASSWORD = "Joelking@05";
+
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String action = request.getParameter("action");
+        
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASSWORD)) {
+            switch (action) {
+                case "create":
+                    createItem(request, conn);
+                    break;
+                case "update":
+                    updateItem(request, conn);
+                    break;
+                case "delete":
+                    deleteItem(request, conn);
+                    break;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        response.setContentType("application/json");
+        response.getWriter().write("{\"status\":\"success\"}");
+    }
+
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        JSONArray inventory = new JSONArray();
+        try (Connection conn = DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASSWORD)) {
+            ResultSet rs = conn.createStatement().executeQuery("SELECT * FROM inventory");
+            while (rs.next()) {
+                JSONObject item = new JSONObject();
+                item.put("id", rs.getInt("id"));
+                item.put("name", rs.getString("name"));
+                item.put("quantity", rs.getInt("quantity"));
+                inventory.put(item);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        response.setContentType("application/json");
+        response.getWriter().write(inventory.toString());
+    }
+
+    private void createItem(HttpServletRequest request, Connection conn) throws SQLException {
+        String name = request.getParameter("name");
+        int quantity = Integer.parseInt(request.getParameter("quantity"));
+        PreparedStatement stmt = conn.prepareStatement("INSERT INTO inventory (name, quantity) VALUES (?, ?)");
+        stmt.setString(1, name);
+        stmt.setInt(2, quantity);
+        stmt.executeUpdate();
+    }
+
+    private void updateItem(HttpServletRequest request, Connection conn) throws SQLException {
+        int id = Integer.parseInt(request.getParameter("id"));
+        String name = request.getParameter("name");
+        int quantity = Integer.parseInt(request.getParameter("quantity"));
+        PreparedStatement stmt = conn.prepareStatement("UPDATE inventory SET name=?, quantity=? WHERE id=?");
+        stmt.setString(1, name);
+        stmt.setInt(2, quantity);
+        stmt.setInt(3, id);
+        stmt.executeUpdate();
+    }
+
+    private void deleteItem(HttpServletRequest request, Connection conn) throws SQLException {
+        int id = Integer.parseInt(request.getParameter("id"));
+        PreparedStatement stmt = conn.prepareStatement("DELETE FROM inventory WHERE id=?");
+        stmt.setInt(1, id);
+        stmt.executeUpdate();
+    }
+}
